@@ -2,6 +2,11 @@
 
 A modern full-stack freelance marketplace built with Node.js, Express, MongoDB, and React.
 
+## 🚀 Live Demo
+
+- **Frontend**: [https://gigflow-marketplace-frontend.onrender.com](https://gigflow-marketplace-frontend.onrender.com)
+- **Backend API**: [https://gigflow-marketplace-backend.onrender.com](https://gigflow-marketplace-backend.onrender.com)
+
 ## Features
 
 - **User Authentication**: JWT-based authentication for clients and freelancers
@@ -80,24 +85,27 @@ VITE_API_URL=http://localhost:5000
 
 ## API Endpoints
 
+### Health Check
+- `GET /api/health` - Check API server health and environment status
+
 ### Authentication
 - `POST /api/auth/register` - Register new user
 - `POST /api/auth/login` - User login
-- `GET /api/auth/me` - Get current user
+- `GET /api/auth/me` - Get current user (Requires Authentication)
 
 ### Gigs
 - `GET /api/gigs` - Get all gigs with search/filter
 - `GET /api/gigs/:id` - Get single gig
-- `POST /api/gigs` - Create new gig (Client only)
-- `PUT /api/gigs/:id` - Update gig (Owner only)
-- `DELETE /api/gigs/:id` - Delete gig (Owner only)
-- `GET /api/gigs/my/posted` - Get user's posted gigs
+- `POST /api/gigs` - Create new gig (Client only, Requires Authentication)
+- `PUT /api/gigs/:id` - Update gig (Owner only, Requires Authentication)
+- `DELETE /api/gigs/:id` - Delete gig (Owner only, Requires Authentication)
+- `GET /api/gigs/my/posted` - Get user's posted gigs (Client only, Requires Authentication)
 
 ### Bids
-- `GET /api/bids` - Get all bids
-- `POST /api/bids` - Submit new bid (Freelancer only)
-- `GET /api/bids/my/submitted` - Get user's submitted bids
-- `PUT /api/bids/:bidId/hire` - Hire freelancer (Client only)
+- `GET /api/bids/gig/:gigId` - Get all bids for a specific gig (Client only - own gigs, Requires Authentication)
+- `POST /api/bids` - Submit new bid (Freelancer only, Requires Authentication)
+- `GET /api/bids/my/submitted` - Get freelancer's submitted bids (Freelancer only, Requires Authentication)
+- `PUT /api/bids/:bidId/hire` - Hire freelancer (Client only, secure hire with race condition protection, Requires Authentication)
 
 ## Search & Filtering
 
@@ -131,12 +139,15 @@ GET /api/gigs?search=react&category=web-development&minBudget=500&maxBudget=2000
 
 ## Security Features
 
-- **JWT Authentication** with secure token handling
-- **Input Validation** using Express Validator
-- **Rate Limiting** to prevent abuse
-- **MongoDB Transactions** for data consistency
-- **Race Condition Protection** in hiring process
-- **CORS** configuration for cross-origin requests
+- **JWT Authentication** with secure token handling and role-based access control
+- **Input Validation** using Express Validator on all request parameters
+- **Rate Limiting** to prevent abuse:
+  - General API: 100 requests per 15 minutes per IP
+  - Bid Submissions: 10 bids per 15 minutes per user/IP
+  - Hire Attempts: 5 attempts per minute per user/IP (prevents rapid-fire hiring spam)
+- **MongoDB Transactions** with ACID compliance for data consistency
+- **Race Condition Protection** in the hiring process (ensuring only one freelancer is hired per gig)
+- **CORS** configuration for secure cross-origin requests between production domains
 
 ## Project Structure
 
@@ -166,17 +177,20 @@ gigflow/
 
 ## Testing
 
-The project includes comprehensive tests for validating concurrent transaction functionality:
+The project includes comprehensive tests for validating concurrent transaction functionality and individual request safety:
 
 ```bash
 # Setup test data
 cd backend
 node tests/setup-test-data.js
 
-# Test race condition protection
+# Test single hire validation (recommended first)
+node tests/test-single-hire.js
+
+# Test race condition protection (simulates simultaneous hires)
 node tests/concurrency-test.js
 
-# Run load testing
+# Run load testing under concurrent stress
 node tests/load-test.js
 ```
 
@@ -215,13 +229,64 @@ The project follows these conventions:
 
 ## Deployment
 
-### Backend Deployment
+### Live Production Deployment
+
+The application is deployed on **Render.com**:
+
+- **Backend**: Deployed as a Web Service
+  - **URL**: https://gigflow-marketplace-backend.onrender.com
+  - **Environment**: Node.js with Express
+  - **Database**: MongoDB Atlas (cloud)
+
+- **Frontend**: Deployed as a Static Site
+  - **URL**: https://gigflow-marketplace-frontend.onrender.com  
+  - **Build**: Vite production build
+  - **CDN**: Render's global CDN
+
+### Deployment Configuration
+
+**Backend Environment Variables:**
+```env
+NODE_ENV=production
+MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/gigflow
+JWT_SECRET=your_production_jwt_secret
+FRONTEND_URL=https://gigflow-marketplace-frontend.onrender.com
+```
+
+**Frontend Environment Variables:**
+```env
+VITE_API_URL=https://gigflow-marketplace-backend.onrender.com
+```
+
+### Manual Deployment Steps
+
+**Backend Deployment (Render):**
+1. Create new Web Service
+2. Connect GitHub repository
+3. Set Root Directory: `backend`
+4. Build Command: `npm install`
+5. Start Command: `npm start`
+6. Add environment variables
+7. Deploy
+
+**Frontend Deployment (Render):**
+1. Create new Static Site
+2. Connect same GitHub repository  
+3. Set Root Directory: `frontend`
+4. Build Command: `npm run build`
+5. Publish Directory: `dist`
+6. Add VITE_API_URL environment variable
+7. Deploy
+
+### Alternative Deployment Options
+
+**Backend Deployment:**
 1. Set production environment variables
 2. Use PM2 or similar process manager
 3. Configure reverse proxy (nginx)
 4. Enable HTTPS
 
-### Frontend Deployment
+**Frontend Deployment:**
 1. Build the production bundle: `npm run build`
 2. Deploy to static hosting (Vercel, Netlify, etc.)
 3. Update API URL in environment variables
